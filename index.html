@@ -1,1 +1,1171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>Labyrinth &middot; AppADay 069</title>
+<meta name="description" content="Tilt your phone to roll a steel ball through a wooden maze. Prise out the brass tacks, find the maker's marks, and rebuild the toy at the workbench.">
+<meta name="theme-color" content="#2A1A10">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Stencil+One&family=Barlow+Semi+Condensed:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#17110C;
+    --brass:#C79A46;
+    --brass-lit:#EBC777;
+    --paper:#EFE3CE;
+    --paper-dim:#A2907A;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; }
+  body{
+    min-height:100dvh; height:100dvh; overflow:hidden;
+    background:radial-gradient(120% 90% at 50% 0%, #402917 0%, #1B1009 70%, #120A05 100%);
+    color:var(--paper);
+    font-family:"Barlow Semi Condensed","Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    -webkit-tap-highlight-color:transparent;
+    overscroll-behavior:none;
+  }
+  .app{
+    height:100dvh; display:flex; flex-direction:column; gap:7px;
+    padding:max(8px, env(safe-area-inset-top)) 12px max(8px, env(safe-area-inset-bottom));
+  }
+  .bar{
+    display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+    flex:0 0 auto; border-bottom:1px solid rgba(199,154,70,.28); padding-bottom:5px;
+  }
+  .mark{ display:flex; align-items:baseline; gap:8px; min-width:0; }
+  .num{ font-family:"Saira Stencil One",cursive; font-size:14px; color:var(--brass); letter-spacing:.06em; }
+  .name{
+    font-family:"Saira Stencil One",cursive; font-size:18px; letter-spacing:.10em;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .back{
+    color:var(--paper-dim); text-decoration:none; font-size:12px; letter-spacing:.16em;
+    text-transform:uppercase; font-weight:600; white-space:nowrap; padding:4px 2px;
+  }
+  .back:hover,.back:focus-visible{ color:var(--brass-lit); }
 
+  .hud{ flex:0 0 auto; display:flex; justify-content:space-between; gap:6px; }
+  .cell{ display:flex; flex-direction:column; min-width:0; }
+  .cell:last-child{ align-items:flex-end; }
+  .k{ font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--paper-dim); font-weight:600; }
+  .v{
+    font-family:"Saira Stencil One",cursive; font-size:16px; letter-spacing:.03em;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .v.brass{ color:var(--brass-lit); }
+
+  .zone{ flex:1 1 auto; min-height:0; display:grid; place-items:center; }
+  .wrap{ position:relative; perspective:1100px; }
+  .tilt{
+    position:relative; transform-style:preserve-3d; will-change:transform;
+    border-radius:12px; box-shadow:0 24px 42px rgba(0,0,0,.62), 0 3px 0 rgba(0,0,0,.5);
+  }
+  canvas{ display:block; border-radius:12px; touch-action:none; }
+
+  .grip{
+    flex:0 0 auto; height:5px; border-radius:3px; background:rgba(199,154,70,.16); overflow:hidden;
+  }
+  .grip[hidden]{ display:none; }
+  .grip i{
+    display:block; height:100%; width:100%; transform-origin:left center;
+    background:linear-gradient(90deg,var(--brass),var(--brass-lit));
+  }
+  .grip.spent i{ background:#6B4A18; }
+
+  .foot{ flex:0 0 auto; display:flex; flex-direction:column; gap:6px; align-items:center; }
+  .dots{ display:flex; gap:5px; }
+  .row{ display:flex; gap:6px; justify-content:center; }
+
+  button{
+    font-family:"Barlow Semi Condensed",sans-serif; font-weight:600; letter-spacing:.12em;
+    text-transform:uppercase; font-size:13px; color:var(--ink);
+    background:linear-gradient(180deg,var(--brass-lit),var(--brass));
+    border:none; border-radius:999px; padding:12px 24px; min-height:44px; cursor:pointer;
+    box-shadow:0 3px 0 #8A6420, 0 8px 18px rgba(0,0,0,.4);
+  }
+  button:active{ transform:translateY(2px); box-shadow:0 1px 0 #8A6420; }
+  button.ghost{
+    background:transparent; color:var(--paper-dim); border:1px solid rgba(199,154,70,.35);
+    box-shadow:none; padding:8px 11px; min-height:40px; font-size:11px; letter-spacing:.09em;
+  }
+  button.ghost:active{ transform:translateY(1px); }
+  button.ghost.hot{ color:var(--brass-lit); border-color:rgba(235,199,119,.7); }
+  button[disabled]{ opacity:.35; cursor:default; }
+  button:focus-visible,.back:focus-visible{ outline:2px solid var(--brass-lit); outline-offset:3px; }
+
+  .dot{
+    width:29px; height:29px; border-radius:8px; position:relative;
+    border:1px solid rgba(199,154,70,.3); background:rgba(0,0,0,.25); color:var(--paper-dim);
+    font-family:"Saira Stencil One",cursive; font-size:12px; letter-spacing:0; text-transform:none;
+    display:grid; place-items:center; cursor:pointer; padding:0; min-height:0; box-shadow:none;
+  }
+  .dot[aria-current="true"]{ background:var(--brass); color:var(--ink); border-color:var(--brass-lit); }
+  .dot.done{ color:var(--brass-lit); border-color:rgba(199,154,70,.6); }
+  .dot[aria-current="true"].done{ color:var(--ink); }
+  .dot.mark::after{
+    content:""; position:absolute; top:2px; right:2px; width:5px; height:5px;
+    border-radius:50%; background:var(--brass-lit); box-shadow:0 0 0 1px rgba(0,0,0,.5);
+  }
+  .dot:active{ transform:none; }
+
+  .over{
+    position:absolute; inset:0; display:grid; place-items:center; border-radius:12px;
+    background:rgba(15,9,5,.88); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px);
+    text-align:center; padding:18px;
+  }
+  .over[hidden]{ display:none; }
+  h2{
+    font-family:"Saira Stencil One",cursive; font-weight:400;
+    font-size:clamp(24px,6.5vw,36px); letter-spacing:.07em; color:var(--brass-lit); line-height:1.12;
+  }
+  .over p{ font-size:14.5px; opacity:.88; max-width:31ch; margin:9px auto 0; line-height:1.45; }
+  .fine{ font-size:12.5px; color:var(--paper-dim); letter-spacing:.03em; }
+  .big{ font-family:"Saira Stencil One",cursive; font-size:clamp(30px,10vw,46px); margin-top:8px; }
+  .stack{ display:flex; flex-direction:column; align-items:center; gap:14px; }
+
+  .bench{
+    position:fixed; inset:0; z-index:20; background:rgba(10,6,3,.97);
+    display:flex; flex-direction:column; overflow-y:auto; -webkit-overflow-scrolling:touch;
+    padding:max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom));
+  }
+  .bench[hidden]{ display:none; }
+  .bench-in{ width:100%; max-width:480px; margin:auto; display:flex; flex-direction:column; gap:13px; }
+  .bench-top{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+  .purse{ font-family:"Saira Stencil One",cursive; color:var(--brass-lit); font-size:16px; white-space:nowrap; }
+  .lede{ font-size:13.5px; color:var(--paper-dim); line-height:1.5; }
+  .sect{
+    font-size:10px; letter-spacing:.22em; text-transform:uppercase; color:var(--brass);
+    font-weight:600; border-top:1px solid rgba(199,154,70,.22); padding-top:9px;
+  }
+  .rack{ display:flex; gap:8px; }
+  .chip{
+    flex:1; border:1px solid rgba(199,154,70,.28); border-radius:12px; background:rgba(0,0,0,.3);
+    padding:10px 6px; display:flex; flex-direction:column; align-items:center; gap:6px;
+    cursor:pointer; color:var(--paper); min-height:0; box-shadow:none;
+    text-transform:none; letter-spacing:0; font-size:12px;
+  }
+  .chip[aria-pressed="true"]{ border-color:var(--brass-lit); background:rgba(199,154,70,.14); }
+  .chip:active{ transform:none; }
+  .orb{ width:34px; height:34px; border-radius:50%; box-shadow:inset 0 -3px 6px rgba(0,0,0,.5); }
+  .chip b{ font-family:"Saira Stencil One",cursive; font-weight:400; font-size:12px; letter-spacing:.04em; }
+  .chip s{ font-size:10.5px; color:var(--brass-lit); text-decoration:none; letter-spacing:.06em; }
+  .chip.locked{ color:var(--paper-dim); }
+  .chip.locked .orb{ filter:grayscale(1) brightness(.5); }
+  .note{ font-size:12.5px; color:var(--paper-dim); line-height:1.45; min-height:3.6em; }
+
+  .fit{
+    display:flex; align-items:center; gap:10px; padding:9px 0;
+    border-bottom:1px solid rgba(199,154,70,.14);
+  }
+  .fit:last-of-type{ border-bottom:none; }
+  .fit-txt{ flex:1; min-width:0; }
+  .fit-txt b{ font-family:"Saira Stencil One",cursive; font-weight:400; font-size:13px; letter-spacing:.05em; display:block; }
+  .fit-txt span{ font-size:12.5px; color:var(--paper-dim); line-height:1.4; display:block; }
+  .tag{
+    font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--brass-lit);
+    border:1px solid rgba(199,154,70,.45); border-radius:999px; padding:7px 11px; white-space:nowrap;
+  }
+  .bench-btns{ display:flex; gap:8px; justify-content:space-between; align-items:center; padding-top:4px; }
+
+  @media (prefers-reduced-motion: reduce){ .tilt{ transform:none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <div class="mark"><span class="num">069</span><span class="name">Labyrinth</span></div>
+    <a class="back" href="https://augustineiacopelli.github.io/appaday/">AppADay</a>
+  </header>
+
+  <div class="hud">
+    <div class="cell"><span class="k">Board</span><span class="v" id="hudLevel">1 Warm-Up</span></div>
+    <div class="cell"><span class="k">Time</span><span class="v" id="hudTime">0.0</span></div>
+    <div class="cell"><span class="k">Best</span><span class="v brass" id="hudBest">&mdash;</span></div>
+    <div class="cell"><span class="k">Tacks</span><span class="v brass" id="hudTacks">0</span></div>
+  </div>
+
+  <div class="zone" id="zone">
+    <div class="wrap" id="wrap">
+      <div class="tilt" id="tilt">
+        <canvas id="board"></canvas>
+        <div class="over" id="over"><div class="stack" id="overBody"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grip" id="gripBar" hidden><i id="gripFill"></i></div>
+
+  <div class="foot">
+    <div class="dots" id="dots"></div>
+    <div class="row">
+      <button class="ghost" id="btnBench">Workbench</button>
+      <button class="ghost" id="btnSeal" hidden>Seal 3</button>
+      <button class="ghost" id="btnRecenter">Center</button>
+      <button class="ghost" id="btnRestart">Reset</button>
+    </div>
+  </div>
+</div>
+
+<div class="bench" id="bench" hidden>
+  <div class="bench-in">
+    <div class="bench-top">
+      <h2>Workbench</h2>
+      <span class="purse" id="purse">0 tacks</span>
+    </div>
+    <p class="lede">Brass tacks prised off the boards buy modifications to the toy itself. Nothing here is a power-up. Every one of them costs you something.</p>
+
+    <div class="sect">The rack</div>
+    <div class="rack" id="rack"></div>
+    <div class="note" id="rackNote"></div>
+
+    <div class="sect">Fittings</div>
+    <div id="fits"></div>
+
+    <div class="bench-btns">
+      <button class="ghost" id="btnMelt">Melt it all down</button>
+      <button id="btnCloseBench">Back to the board</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var U = 100;
+  var BALL_R = 2.6;
+  var HOLE_R = 3.6;
+  var GOAL_R = 4.6;
+  var TACK_R = 1.8;
+  var MARK_R = 2.9;
+  var GRAV = 650;
+  var DAMP = 2.0;
+  var BOUNCE = 0.30;
+  var MAX_TILT = 22;
+  var FALL_D = 1.5;
+  var SEAL_RANGE = 14;
+  var PLUGS_PER_RUN = 3;
+  var STORE_KEY = "appaday069.labyrinth.v2";
+
+  // Same diameter, different metal. Only the feel changes.
+  var BALLS = {
+    steel: {
+      label:"Steel", cost:0, pull:1.00, damp:1.00, bounce:1.00,
+      note:"The stock ball. Nothing it does will surprise you, which is worth more than it sounds.",
+      css:"radial-gradient(circle at 34% 30%, #FFFFFF 0%, #DDE3E9 22%, #98A1A9 62%, #5A6167 88%, #31373C 100%)",
+      g:["#FFFFFF","#DDE3E9","#98A1A9","#5A6167","#31373C"]
+    },
+    brass: {
+      label:"Brass", cost:8, pull:0.62, damp:0.78, bounce:0.85,
+      note:"Heavy enough to skim a hole's lip and keep going. Also heavy enough that you will not stop it when you need to.",
+      css:"radial-gradient(circle at 34% 30%, #FFF4D6 0%, #F2D98F 22%, #C79A46 62%, #8A6420 88%, #4E3810 100%)",
+      g:["#FFF4D6","#F2D98F","#C79A46","#8A6420","#4E3810"]
+    },
+    boxwood: {
+      label:"Boxwood", cost:8, pull:1.45, damp:1.55, bounce:1.25,
+      note:"Light. Every hole grabs at it. But it sheds speed the instant you level the board, which is the whole game on a tight run.",
+      css:"radial-gradient(circle at 34% 30%, #FFF2D8 0%, #EBCF9A 22%, #C39A5D 62%, #8A6435 88%, #533A18 100%)",
+      g:["#FFF2D8","#EBCF9A","#C39A5D","#8A6435","#533A18"]
+    }
+  };
+  var BALL_ORDER = ["steel","brass","boxwood"];
+
+  var FITS = [
+    { id:"felt", label:"Felt lining", cost:6,
+      desc:"Green baize glued along every wall. The ball stops rattling off them and starts dying against them." },
+    { id:"plugs", label:"Beeswax plugs", cost:9,
+      desc:"Three per run. Seals whichever hole is nearest the ball, including one already dragging it under." },
+    { id:"magnet", label:"Magnet knob", cost:12,
+      desc:"A lodestone on a slide under the board. Hold the board, or the space bar, to drag the ball to a halt. It needs time to recover." }
+  ];
+
+  function spiral(){
+    var out = [], b = 15/(2*Math.PI), r = 40, th = 0;
+    while (r > 7){
+      out.push([+(50 + r*Math.cos(th)).toFixed(2), +(50 + r*Math.sin(th)).toFixed(2)]);
+      th += 4.6/Math.max(r, 1);
+      r = 40 - b*th;
+    }
+    return out;
+  }
+
+  var LEVELS = [
+    { name:"Warm-Up", start:[8,12], goal:[12,90],
+      walls:[[0,24,78,2],[22,49,78,2],[0,74,78,2]],
+      holes:[[45,6],[55,42],[45,56],[55,94]],
+      tacks:[[57.5,95],[56,44.5],[45,3],[47,54],[45,16],[47.5,95],[46,44],[51.5,35.5]],
+      mark:[52.5,90] },
+    { name:"Switchback", start:[8,8], goal:[50,50],
+      walls:[[16,16,68,2],[82,16,2,68],[16,82,68,2],[16,16,2,24],[16,56,2,28],
+             [32,32,36,2],[32,66,36,2],[32,32,2,36],[66,32,2,11],[66,57,2,11]],
+      holes:[[50,4],[95,44],[50,96],[5,70],[25,25],[75,75],[50,60]],
+      tacks:[[96,46.5],[77.5,76],[52.5,97],[52.5,5],[51,62.5],[7.5,71],[23,23],[91.5,37.5]],
+      mark:[45.5,97] },
+    { name:"The Comb", start:[8,8], goal:[91,50],
+      walls:[[16,0,2,80],[32,20,2,80],[48,0,2,80],[64,20,2,80],[80,0,2,80]],
+      holes:[[11,52],[28,40],[44,60],[60,40],[76,60],[88,80],[95,20]],
+      tacks:[[96,22.5],[86,78],[13,50],[77,57.5],[61,42.5],[45,57.5],[29,42.5],[91.5,13.5]],
+      mark:[8,55] },
+    { name:"The Vault", start:[8,8], goal:[50,52],
+      walls:[[20,20,24,2],[56,20,24,2],[20,20,2,60],[78,20,2,60],[20,78,60,2]],
+      holes:[[30,10],[62,8],[90,42],[50,92],[10,58],[50,30],[35,36],[65,36],
+             [28,52],[72,52],[38,68],[62,68]],
+      tacks:[[92.5,43],[74.5,53],[67.5,37],[64.5,69],[64.5,9],[52.5,93],[40.5,69],[34,38.5]],
+      mark:[10,60.5] },
+    { name:"Needle", start:[8,9], goal:[90,90],
+      walls:[[0,19,82,2],[18,39,82,2],[0,59,82,2],[18,79,82,2]],
+      holes:[[30,4],[55,15],[76,4],[70,24],[45,35],[26,24],[30,44],[52,55],[73,44],
+             [70,64],[45,75],[26,64],[32,95],[57,84],[80,95]],
+      tacks:[[34,97],[82,97],[54.5,56],[47.5,76],[47.5,36],[57.5,16],[78.5,3],[32.5,3]],
+      mark:[23.5,24] },
+    { name:"The Maker's Own", start:[8,8], goal:[50,50], locked:true,
+      walls:[], holes:spiral(),
+      tacks:[[91,59],[37,85.5],[23.5,67.5],[26,27],[39,42],[76,54],[64.5,87],[31,54]],
+      mark:[81,76.5] }
+  ];
+
+  var zone = document.getElementById("zone");
+  var wrap = document.getElementById("wrap");
+  var tiltEl = document.getElementById("tilt");
+  var cv = document.getElementById("board");
+  var ctx = cv.getContext("2d");
+  var over = document.getElementById("over");
+  var overBody = document.getElementById("overBody");
+  var hudLevel = document.getElementById("hudLevel");
+  var hudTime = document.getElementById("hudTime");
+  var hudBest = document.getElementById("hudBest");
+  var hudTacks = document.getElementById("hudTacks");
+  var dotsEl = document.getElementById("dots");
+  var gripBar = document.getElementById("gripBar");
+  var gripFill = document.getElementById("gripFill");
+  var bench = document.getElementById("bench");
+  var rackEl = document.getElementById("rack");
+  var rackNote = document.getElementById("rackNote");
+  var fitsEl = document.getElementById("fits");
+  var purse = document.getElementById("purse");
+  var btnBench = document.getElementById("btnBench");
+  var btnSeal = document.getElementById("btnSeal");
+  var btnRecenter = document.getElementById("btnRecenter");
+  var btnRestart = document.getElementById("btnRestart");
+  var btnMelt = document.getElementById("btnMelt");
+  var btnCloseBench = document.getElementById("btnCloseBench");
+
+  var reduceMotion = false;
+  try { reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) {}
+
+  var save = { v:2, best:{}, found:{}, owned:{}, ball:"steel" };
+  function load(){
+    try {
+      var raw = window.localStorage.getItem(STORE_KEY);
+      if (!raw) return;
+      var o = JSON.parse(raw);
+      if (o && o.v === 2){
+        save.best = o.best || {};
+        save.found = o.found || {};
+        save.owned = o.owned || {};
+        save.ball = BALLS[o.ball] ? o.ball : "steel";
+      }
+    } catch (e) {}
+  }
+  function persist(){
+    try { window.localStorage.setItem(STORE_KEY, JSON.stringify(save)); } catch (e) {}
+  }
+  function foundOf(i){
+    var k = String(i);
+    if (!save.found[k]) save.found[k] = { t:[], m:false };
+    return save.found[k];
+  }
+  function tacksCollected(){
+    var n = 0;
+    for (var i = 0; i < LEVELS.length; i++) n += foundOf(i).t.length;
+    return n;
+  }
+  function marksFound(){
+    var n = 0;
+    for (var i = 0; i < LEVELS.length; i++) if (foundOf(i).m) n++;
+    return n;
+  }
+  function spent(){
+    var n = 0, i;
+    for (i = 0; i < FITS.length; i++) if (save.owned[FITS[i].id]) n += FITS[i].cost;
+    for (i = 0; i < BALL_ORDER.length; i++){
+      var b = BALL_ORDER[i];
+      if (b !== "steel" && save.owned[b]) n += BALLS[b].cost;
+    }
+    return n;
+  }
+  function purseTacks(){ return tacksCollected() - spent(); }
+  function has(id){ return !!save.owned[id]; }
+  function unlockedSix(){ return marksFound() >= 5; }
+
+  var state = {
+    mode:"intro", level:0,
+    px:0, py:0, vx:0, vy:0,
+    tx:0, ty:0, rawx:0, rawy:0,
+    elapsed:0, drops:0,
+    fallT:0, fallHole:null,
+    sealed:{}, plugs:0,
+    grip:1, braking:false,
+    gotTacks:{}, gotMark:false,
+    pops:[],
+    size:320, scale:3.2, dpr:1
+  };
+
+  var motionLive = false, baseBeta = null, baseGamma = null, lastBeta = 0, lastGamma = 0;
+  var pointerOn = false, pOx = 0, pOy = 0;
+  var keys = { u:false, d:false, l:false, r:false };
+
+  function clamp(v, lo, hi){ return v < lo ? lo : (v > hi ? hi : v); }
+
+  var boardCv = document.createElement("canvas");
+  var boardCtx = boardCv.getContext("2d");
+
+  function rr(c, x, y, w, h, r){
+    var m = Math.min(r, w/2, h/2);
+    c.beginPath();
+    c.moveTo(x + m, y);
+    c.arcTo(x + w, y, x + w, y + h, m);
+    c.arcTo(x + w, y + h, x, y + h, m);
+    c.arcTo(x, y + h, x, y, m);
+    c.arcTo(x, y, x + w, y, m);
+    c.closePath();
+  }
+
+  function drawHole(c, x, y, r){
+    var g = c.createRadialGradient(x - r*0.3, y - r*0.3, r*0.05, x, y, r);
+    g.addColorStop(0, "#000000");
+    g.addColorStop(0.72, "#0B0603");
+    g.addColorStop(1, "#3A2412");
+    c.fillStyle = g;
+    c.beginPath(); c.arc(x, y, r, 0, Math.PI*2); c.fill();
+    c.strokeStyle = "rgba(255,228,182,.30)";
+    c.lineWidth = Math.max(1, r*0.13);
+    c.beginPath(); c.arc(x, y + r*0.10, r*0.98, Math.PI*0.15, Math.PI*0.85); c.stroke();
+  }
+
+  function drawGoal(c, x, y, r){
+    var g = c.createRadialGradient(x, y, r*0.1, x, y, r);
+    g.addColorStop(0, "#3A2A0E"); g.addColorStop(1, "#6B4E18");
+    c.fillStyle = g;
+    c.beginPath(); c.arc(x, y, r, 0, Math.PI*2); c.fill();
+    c.strokeStyle = "#EBC777"; c.lineWidth = Math.max(1.5, r*0.20);
+    c.beginPath(); c.arc(x, y, r*0.92, 0, Math.PI*2); c.stroke();
+    c.strokeStyle = "rgba(199,154,70,.45)"; c.lineWidth = Math.max(1, r*0.10);
+    c.beginPath(); c.arc(x, y, r*1.42, 0, Math.PI*2); c.stroke();
+  }
+
+  function drawWall(c, w, k){
+    var x = w[0]*k, y = w[1]*k, ww = w[2]*k, hh = w[3]*k;
+    var d = Math.max(1.5, k*0.55);
+    c.fillStyle = "rgba(40,22,8,.34)";
+    rr(c, x + d*0.7, y + d*0.9, ww, hh, Math.min(ww,hh)*0.42); c.fill();
+    var g = c.createLinearGradient(x, y, x + ww*0.25 + hh*0.9, y + hh);
+    g.addColorStop(0, "#8A6231"); g.addColorStop(0.45, "#6B4520"); g.addColorStop(1, "#492C12");
+    c.fillStyle = g;
+    rr(c, x, y, ww, hh, Math.min(ww,hh)*0.42); c.fill();
+    c.strokeStyle = "rgba(255,226,177,.42)";
+    c.lineWidth = Math.max(1, k*0.16);
+    rr(c, x + c.lineWidth/2, y + c.lineWidth/2, ww - c.lineWidth, hh - c.lineWidth, Math.min(ww,hh)*0.40);
+    c.stroke();
+  }
+
+  function drawBoard(){
+    var s = state.size, dpr = state.dpr;
+    boardCv.width = Math.round(s*dpr); boardCv.height = Math.round(s*dpr);
+    var c = boardCtx;
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.clearRect(0, 0, s, s);
+    var k = s/U, i, x;
+
+    var g = c.createLinearGradient(0, 0, s, s);
+    g.addColorStop(0, "#E6C79A"); g.addColorStop(0.5, "#D3AC79"); g.addColorStop(1, "#B98F5D");
+    c.fillStyle = g; c.fillRect(0, 0, s, s);
+
+    c.save();
+    c.globalAlpha = 0.16;
+    c.lineWidth = Math.max(1, s/340);
+    for (i = 0; i < 90; i++){
+      var y0 = (i/90)*s + Math.sin(i*1.7)*2;
+      c.strokeStyle = (i % 3 === 0) ? "#8B6537" : "#C79B67";
+      c.beginPath();
+      for (x = 0; x <= s; x += 6){
+        var yy = y0 + Math.sin(x*0.012 + i*0.9)*3.2 + Math.sin(x*0.041 + i)*1.1;
+        if (x === 0) c.moveTo(x, yy); else c.lineTo(x, yy);
+      }
+      c.stroke();
+    }
+    c.restore();
+
+    c.save();
+    c.globalAlpha = 0.10;
+    var knots = [[0.22,0.31],[0.71,0.14],[0.58,0.79],[0.13,0.68]];
+    for (var q = 0; q < knots.length; q++){
+      for (var ring = 1; ring <= 5; ring++){
+        c.strokeStyle = "#7A5628";
+        c.lineWidth = Math.max(1, s/420);
+        c.beginPath();
+        c.arc(knots[q][0]*s, knots[q][1]*s, ring*s*0.007, 0, Math.PI*2);
+        c.stroke();
+      }
+    }
+    c.restore();
+
+    var lv = LEVELS[state.level];
+    for (i = 0; i < lv.holes.length; i++) drawHole(c, lv.holes[i][0]*k, lv.holes[i][1]*k, HOLE_R*k);
+    drawGoal(c, lv.goal[0]*k, lv.goal[1]*k, GOAL_R*k);
+    for (i = 0; i < lv.walls.length; i++) drawWall(c, lv.walls[i], k);
+
+    c.strokeStyle = "rgba(60,36,16,.85)";
+    c.lineWidth = Math.max(2, s/90);
+    rr(c, c.lineWidth/2, c.lineWidth/2, s - c.lineWidth, s - c.lineWidth, s*0.035); c.stroke();
+    c.strokeStyle = "rgba(255,236,200,.28)";
+    c.lineWidth = Math.max(1, s/300);
+    rr(c, c.lineWidth*2, c.lineWidth*2, s - c.lineWidth*4, s - c.lineWidth*4, s*0.03); c.stroke();
+  }
+
+  function drawTack(c, x, y, r){
+    c.save();
+    c.fillStyle = "rgba(30,16,5,.42)";
+    c.beginPath(); c.arc(x + r*0.2, y + r*0.28, r*0.95, 0, Math.PI*2); c.fill();
+    var g = c.createRadialGradient(x - r*0.35, y - r*0.4, r*0.05, x, y, r);
+    g.addColorStop(0, "#FFF3CE"); g.addColorStop(0.4, "#E7C070");
+    g.addColorStop(0.8, "#B7873A"); g.addColorStop(1, "#6E4C15");
+    c.fillStyle = g;
+    c.beginPath(); c.arc(x, y, r, 0, Math.PI*2); c.fill();
+    c.strokeStyle = "rgba(70,44,10,.75)";
+    c.lineWidth = Math.max(1, r*0.22);
+    c.beginPath(); c.moveTo(x - r*0.5, y); c.lineTo(x + r*0.5, y); c.stroke();
+    c.restore();
+  }
+
+  function drawMark(c, x, y, r, t){
+    c.save();
+    c.fillStyle = "rgba(30,16,5,.45)";
+    c.beginPath(); c.arc(x + r*0.16, y + r*0.24, r*0.95, 0, Math.PI*2); c.fill();
+    var hi = 0.5 + 0.5*Math.sin((t % 2600)/2600*Math.PI*2);
+    var g = c.createLinearGradient(x - r, y - r, x + r, y + r);
+    g.addColorStop(0, "#6E4C15");
+    g.addColorStop(clamp(hi, 0.08, 0.92), "#FFF6D8");
+    g.addColorStop(1, "#8A6420");
+    c.fillStyle = g;
+    c.beginPath(); c.arc(x, y, r, 0, Math.PI*2); c.fill();
+    c.strokeStyle = "rgba(60,38,8,.8)";
+    c.lineWidth = Math.max(1, r*0.10);
+    c.beginPath(); c.arc(x, y, r*0.74, 0, Math.PI*2); c.stroke();
+    for (var i = 0; i < 8; i++){
+      var a = i/8*Math.PI*2 + 0.2;
+      c.beginPath();
+      c.moveTo(x + Math.cos(a)*r*0.78, y + Math.sin(a)*r*0.78);
+      c.lineTo(x + Math.cos(a)*r*0.97, y + Math.sin(a)*r*0.97);
+      c.stroke();
+    }
+    c.restore();
+  }
+
+  function drawPlug(c, x, y, r){
+    c.save();
+    var g = c.createRadialGradient(x - r*0.3, y - r*0.35, r*0.05, x, y, r);
+    g.addColorStop(0, "#FFE9A8"); g.addColorStop(0.55, "#E0A73C"); g.addColorStop(1, "#9A6A18");
+    c.fillStyle = g;
+    c.beginPath(); c.arc(x, y, r*0.98, 0, Math.PI*2); c.fill();
+    c.strokeStyle = "rgba(70,44,10,.55)";
+    c.lineWidth = Math.max(1, r*0.12);
+    c.beginPath(); c.arc(x, y, r*0.98, 0, Math.PI*2); c.stroke();
+    c.restore();
+  }
+
+  function drawBall(c, x, y, r, alpha){
+    if (alpha <= 0) return;
+    var cols = BALLS[save.ball].g;
+    c.save();
+    c.globalAlpha = alpha;
+    var ox = state.tx*0.10*(r/2.6), oy = state.ty*0.10*(r/2.6);
+    c.fillStyle = "rgba(20,10,4,.45)";
+    c.beginPath(); c.arc(x + ox + r*0.16, y + oy + r*0.24, r*0.98, 0, Math.PI*2); c.fill();
+    var g = c.createRadialGradient(x - r*0.38, y - r*0.42, r*0.06, x, y, r);
+    g.addColorStop(0, cols[0]); g.addColorStop(0.22, cols[1]); g.addColorStop(0.62, cols[2]);
+    g.addColorStop(0.88, cols[3]); g.addColorStop(1, cols[4]);
+    c.fillStyle = g;
+    c.beginPath(); c.arc(x, y, r, 0, Math.PI*2); c.fill();
+    c.fillStyle = "rgba(255,255,255,.72)";
+    c.beginPath(); c.arc(x - r*0.36, y - r*0.40, r*0.17, 0, Math.PI*2); c.fill();
+    if (state.braking && state.grip > 0 && has("magnet")){
+      c.strokeStyle = "rgba(235,199,119,.85)";
+      c.lineWidth = Math.max(1, r*0.22);
+      c.beginPath(); c.arc(x, y, r*1.55, 0, Math.PI*2); c.stroke();
+    }
+    c.restore();
+  }
+
+  function drawPops(c, k){
+    for (var i = 0; i < state.pops.length; i++){
+      var p = state.pops[i], t = p.t/620;
+      if (t >= 1) continue;
+      c.save();
+      c.globalAlpha = (1 - t)*0.9;
+      c.strokeStyle = p.gold ? "#FFF6D8" : "#EBC777";
+      c.lineWidth = Math.max(1, k*0.5*(1 - t));
+      c.beginPath();
+      c.arc(p.x*k, p.y*k, (2 + t*9)*k, 0, Math.PI*2);
+      c.stroke();
+      c.restore();
+    }
+  }
+
+  function resize(){
+    var s = Math.max(200, Math.floor(Math.min(zone.clientWidth, zone.clientHeight) - 4));
+    var dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    state.size = s; state.dpr = dpr; state.scale = s/U;
+    wrap.style.width = s + "px"; wrap.style.height = s + "px";
+    cv.style.width = s + "px"; cv.style.height = s + "px";
+    cv.width = Math.round(s*dpr); cv.height = Math.round(s*dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawBoard(); render(0);
+  }
+
+  function fmt(ms){
+    var s = ms/1000;
+    if (s < 60) return s.toFixed(1);
+    var m = Math.floor(s/60), r = s - m*60;
+    return m + ":" + (r < 10 ? "0" : "") + r.toFixed(1);
+  }
+
+  function syncHud(){
+    var lv = LEVELS[state.level];
+    hudLevel.textContent = (state.level + 1) + " " + lv.name;
+    hudTime.textContent = fmt(state.elapsed);
+    var b = save.best[lv.name];
+    hudBest.innerHTML = b ? fmt(b) : "&mdash;";
+    hudTacks.textContent = String(purseTacks());
+    var kids = dotsEl.children;
+    for (var i = 0; i < kids.length; i++){
+      var d = kids[i];
+      d.setAttribute("aria-current", i === state.level ? "true" : "false");
+      if (save.best[LEVELS[i].name]) d.classList.add("done"); else d.classList.remove("done");
+      if (foundOf(i).m) d.classList.add("mark"); else d.classList.remove("mark");
+      var lock = !!(LEVELS[i].locked && !unlockedSix());
+      d.disabled = lock;
+      d.setAttribute("aria-label", lock
+        ? "Board 6 locked. Find all five maker's marks."
+        : "Board " + (i + 1) + ", " + LEVELS[i].name);
+    }
+    btnSeal.hidden = !has("plugs");
+    btnSeal.textContent = "Seal " + state.plugs;
+    btnSeal.disabled = state.plugs <= 0 || (state.mode !== "play" && state.mode !== "falling");
+    gripBar.hidden = !has("magnet");
+  }
+
+  function placeBall(){
+    var lv = LEVELS[state.level];
+    state.px = lv.start[0]; state.py = lv.start[1];
+    state.vx = 0; state.vy = 0;
+  }
+
+  function loadLevel(i){
+    state.level = i;
+    placeBall();
+    state.elapsed = 0; state.drops = 0;
+    state.sealed = {};
+    state.plugs = has("plugs") ? PLUGS_PER_RUN : 0;
+    state.grip = 1;
+    state.braking = false;
+    state.gotTacks = {};
+    state.gotMark = false;
+    state.pops = [];
+    state.fallHole = null;
+    state.mode = "play";
+    over.hidden = true;
+    drawBoard();
+    syncHud();
+  }
+
+  function buildDots(){
+    dotsEl.innerHTML = "";
+    for (var i = 0; i < LEVELS.length; i++){
+      (function(n){
+        var b = document.createElement("button");
+        b.className = "dot"; b.type = "button";
+        b.textContent = String(n + 1);
+        b.addEventListener("click", function(){ if (!b.disabled) loadLevel(n); });
+        dotsEl.appendChild(b);
+      })(i);
+    }
+  }
+
+  function el(tag, cls, txt){
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (txt) e.textContent = txt;
+    return e;
+  }
+
+  function showIntro(){
+    state.mode = "intro";
+    var needsPerm = (typeof window.DeviceOrientationEvent !== "undefined" &&
+                     typeof window.DeviceOrientationEvent.requestPermission === "function");
+    overBody.innerHTML = "";
+    overBody.appendChild(el("h2", null, "Labyrinth"));
+    overBody.appendChild(el("p", null,
+      "Tilt the board. Roll the ball to the brass ring. Prise the tacks out of the wood on the way, and spend them at the workbench on a better toy."));
+    overBody.appendChild(el("p", "fine", needsPerm
+      ? "Your phone will ask to share motion. No motion, no maze."
+      : "On a phone, tilt it. On a computer, drag the board or use the arrow keys."));
+    var btn = el("button", null, needsPerm ? "Allow motion" : "Start");
+    btn.type = "button";
+    btn.addEventListener("click", function(){
+      startMotion(function(){ loadLevel(state.level); });
+    });
+    overBody.appendChild(btn);
+    over.hidden = false;
+  }
+
+  function showWin(){
+    var lv = LEVELS[state.level];
+    var isBest = !save.best[lv.name] || state.elapsed < save.best[lv.name];
+    if (isBest) save.best[lv.name] = state.elapsed;
+
+    var f = foundOf(state.level), i;
+    for (i in state.gotTacks){
+      if (state.gotTacks[i] && f.t.indexOf(+i) < 0) f.t.push(+i);
+    }
+    var justUnlocked = false;
+    if (state.gotMark && !f.m){
+      var before = marksFound();
+      f.m = true;
+      if (before === 4) justUnlocked = true;
+    }
+    persist();
+    syncHud();
+
+    overBody.innerHTML = "";
+    overBody.appendChild(el("h2", null, justUnlocked ? "The maker's own" : "Ring reached"));
+    if (justUnlocked){
+      overBody.appendChild(el("p", null,
+        "Five marks. The sixth board was in the bottom of the toy chest all along. There are no walls on it at all."));
+    } else {
+      overBody.appendChild(el("div", "big", fmt(state.elapsed) + "s"));
+      overBody.appendChild(el("p", "fine",
+        (isBest ? "New best on " + lv.name + ". " : "Best is " + fmt(save.best[lv.name]) + "s. ") +
+        f.t.length + " of 8 tacks. " +
+        (f.m ? "Mark found." : "Mark still in the wood.") + " " +
+        state.drops + (state.drops === 1 ? " drop." : " drops.")));
+    }
+
+    var row = el("div", "row");
+    var last = state.level === LEVELS.length - 1;
+    var nextIdx = last ? 0 : state.level + 1;
+    var canNext = !(LEVELS[nextIdx].locked && !unlockedSix());
+    if (justUnlocked){
+      var open = el("button", null, "Open it");
+      open.type = "button";
+      open.addEventListener("click", function(){ loadLevel(5); });
+      row.appendChild(open);
+    } else if (canNext && !last){
+      var next = el("button", null, "Next board");
+      next.type = "button";
+      next.addEventListener("click", function(){ loadLevel(nextIdx); });
+      row.appendChild(next);
+    }
+    var again = el("button", row.children.length ? "ghost" : null, "Run it again");
+    again.type = "button";
+    again.addEventListener("click", function(){ loadLevel(state.level); });
+    row.appendChild(again);
+    overBody.appendChild(row);
+    over.hidden = false;
+    state.mode = "won";
+  }
+
+  function paintBench(){
+    var p = purseTacks();
+    purse.textContent = p + (p === 1 ? " tack" : " tacks");
+
+    rackEl.innerHTML = "";
+    for (var i = 0; i < BALL_ORDER.length; i++){
+      (function(id){
+        var b = BALLS[id];
+        var owned = id === "steel" || has(id);
+        var chip = el("button", "chip" + (owned ? "" : " locked"));
+        chip.type = "button";
+        chip.setAttribute("aria-pressed", String(save.ball === id));
+        var orb = el("span", "orb");
+        orb.style.background = b.css;
+        chip.appendChild(orb);
+        chip.appendChild(el("b", null, b.label));
+        chip.appendChild(el("s", null, owned ? (save.ball === id ? "In play" : "Fit it") : b.cost + " tacks"));
+        chip.addEventListener("click", function(){
+          if (owned){ save.ball = id; }
+          else if (purseTacks() >= b.cost){ save.owned[id] = true; save.ball = id; }
+          else { rackNote.textContent = "Not enough tacks. " + b.label + " costs " + b.cost + "."; return; }
+          persist(); paintBench(); syncHud();
+        });
+        rackEl.appendChild(chip);
+      })(BALL_ORDER[i]);
+    }
+    rackNote.textContent = BALLS[save.ball].note;
+
+    fitsEl.innerHTML = "";
+    for (var j = 0; j < FITS.length; j++){
+      (function(f){
+        var row = el("div", "fit");
+        var txt = el("div", "fit-txt");
+        txt.appendChild(el("b", null, f.label));
+        txt.appendChild(el("span", null, f.desc));
+        row.appendChild(txt);
+        if (has(f.id)){
+          row.appendChild(el("span", "tag", "Fitted"));
+        } else {
+          var b = el("button", "ghost" + (purseTacks() >= f.cost ? " hot" : ""), f.cost + " tacks");
+          b.type = "button";
+          b.disabled = purseTacks() < f.cost;
+          b.addEventListener("click", function(){
+            if (purseTacks() < f.cost) return;
+            save.owned[f.id] = true;
+            if (f.id === "plugs" && state.plugs === 0) state.plugs = PLUGS_PER_RUN;
+            persist(); paintBench(); syncHud();
+          });
+          row.appendChild(b);
+        }
+        fitsEl.appendChild(row);
+      })(FITS[j]);
+    }
+  }
+
+  function openBench(){
+    if (state.mode === "play") state.mode = "paused";
+    state.braking = false;
+    state.rawx = 0; state.rawy = 0;
+    paintBench();
+    bench.hidden = false;
+  }
+  function closeBench(){
+    bench.hidden = true;
+    if (state.mode === "paused") state.mode = "play";
+    syncHud();
+  }
+  btnBench.addEventListener("click", openBench);
+  btnCloseBench.addEventListener("click", closeBench);
+  btnMelt.addEventListener("click", function(){
+    save.owned = {}; save.ball = "steel";
+    state.plugs = 0;
+    persist(); paintBench(); syncHud();
+  });
+
+  function startMotion(done){
+    var DOE = window.DeviceOrientationEvent;
+    if (typeof DOE !== "undefined" && typeof DOE.requestPermission === "function"){
+      DOE.requestPermission().then(function(res){
+        if (res === "granted") window.addEventListener("deviceorientation", onOrient, false);
+        done();
+      })["catch"](function(){ done(); });
+    } else {
+      if (typeof DOE !== "undefined") window.addEventListener("deviceorientation", onOrient, false);
+      done();
+    }
+  }
+
+  function onOrient(e){
+    if (e.beta === null || e.gamma === null) return;
+    motionLive = true;
+    lastBeta = e.beta; lastGamma = e.gamma;
+    if (baseBeta === null){ baseBeta = e.beta; baseGamma = e.gamma; }
+    var b = e.beta - baseBeta, g = e.gamma - baseGamma, rot = 0;
+    try {
+      if (window.screen && window.screen.orientation && typeof window.screen.orientation.angle === "number")
+        rot = window.screen.orientation.angle;
+      else if (typeof window.orientation === "number") rot = window.orientation;
+    } catch (err) { rot = 0; }
+    var ax = g, ay = b;
+    if (rot === 90){ ax = b; ay = -g; }
+    else if (rot === -90 || rot === 270){ ax = -b; ay = g; }
+    else if (rot === 180){ ax = -g; ay = -b; }
+    state.rawx = clamp(ax, -MAX_TILT, MAX_TILT);
+    state.rawy = clamp(ay, -MAX_TILT, MAX_TILT);
+  }
+
+  function recenter(){
+    if (motionLive){ baseBeta = lastBeta; baseGamma = lastGamma; }
+    state.rawx = 0; state.rawy = 0;
+  }
+
+  function seal(){
+    if (!has("plugs") || state.plugs <= 0) return;
+    if (state.mode !== "play" && state.mode !== "falling") return;
+    var lv = LEVELS[state.level], bi = -1, bd = SEAL_RANGE, i, d;
+    for (i = 0; i < lv.holes.length; i++){
+      if (state.sealed[i]) continue;
+      d = Math.sqrt(Math.pow(lv.holes[i][0] - state.px, 2) + Math.pow(lv.holes[i][1] - state.py, 2));
+      if (d < bd){ bd = d; bi = i; }
+    }
+    if (bi < 0) return;
+    state.sealed[bi] = true;
+    state.plugs--;
+    state.pops.push({ x:lv.holes[bi][0], y:lv.holes[bi][1], t:0, gold:false });
+    if (state.mode === "falling"){
+      state.mode = "play";
+      state.drops = Math.max(0, state.drops - 1);
+      state.fallHole = null;
+      state.px = lv.holes[bi][0]; state.py = lv.holes[bi][1];
+      state.vx *= 0.3; state.vy *= 0.3;
+    }
+    syncHud();
+  }
+  btnSeal.addEventListener("click", seal);
+  btnRecenter.addEventListener("click", recenter);
+  btnRestart.addEventListener("click", function(){ loadLevel(state.level); });
+
+  cv.addEventListener("pointerdown", function(e){
+    if (state.mode === "intro" || state.mode === "won") return;
+    if (motionLive){ state.braking = true; }
+    else {
+      pointerOn = true; pOx = e.clientX; pOy = e.clientY;
+      try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+    e.preventDefault();
+  });
+  cv.addEventListener("pointermove", function(e){
+    if (!pointerOn) return;
+    var reach = state.size*0.42;
+    state.rawx = clamp((e.clientX - pOx)/reach*MAX_TILT, -MAX_TILT, MAX_TILT);
+    state.rawy = clamp((e.clientY - pOy)/reach*MAX_TILT, -MAX_TILT, MAX_TILT);
+    e.preventDefault();
+  });
+  function endPointer(){
+    state.braking = false;
+    if (!pointerOn) return;
+    pointerOn = false;
+    state.rawx = 0; state.rawy = 0;
+  }
+  cv.addEventListener("pointerup", endPointer);
+  cv.addEventListener("pointercancel", endPointer);
+
+  window.addEventListener("keydown", function(e){
+    if (state.mode === "intro" || !bench.hidden) return;
+    var k = e.key;
+    if (k === "ArrowUp" || k === "w") keys.u = true;
+    else if (k === "ArrowDown" || k === "s") keys.d = true;
+    else if (k === "ArrowLeft" || k === "a") keys.l = true;
+    else if (k === "ArrowRight" || k === "d") keys.r = true;
+    else if (k === " ") state.braking = true;
+    else if (k === "p" || k === "P") seal();
+    else if (k === "r" || k === "R") loadLevel(state.level);
+    else return;
+    e.preventDefault();
+  });
+  window.addEventListener("keyup", function(e){
+    var k = e.key;
+    if (k === "ArrowUp" || k === "w") keys.u = false;
+    else if (k === "ArrowDown" || k === "s") keys.d = false;
+    else if (k === "ArrowLeft" || k === "a") keys.l = false;
+    else if (k === "ArrowRight" || k === "d") keys.r = false;
+    else if (k === " ") state.braking = false;
+  });
+
+  function circleRect(px, py, r, w){
+    var cx = clamp(px, w[0], w[0] + w[2]);
+    var cy = clamp(py, w[1], w[1] + w[3]);
+    var dx = px - cx, dy = py - cy, d2 = dx*dx + dy*dy;
+    if (d2 > r*r) return null;
+    var d = Math.sqrt(d2);
+    if (d < 0.00001){
+      var left = px - w[0], right = w[0] + w[2] - px;
+      var top = py - w[1], bot = w[1] + w[3] - py;
+      var m = Math.min(left, right, top, bot);
+      if (m === left) return { nx:-1, ny:0, pen:r + left };
+      if (m === right) return { nx:1, ny:0, pen:r + right };
+      if (m === top) return { nx:0, ny:-1, pen:r + top };
+      return { nx:0, ny:1, pen:r + bot };
+    }
+    return { nx:dx/d, ny:dy/d, pen:r - d };
+  }
+
+  function step(dt){
+    var lv = LEVELS[state.level];
+    var B = BALLS[save.ball];
+    var ax = Math.sin(state.tx*Math.PI/180)*GRAV;
+    var ay = Math.sin(state.ty*Math.PI/180)*GRAV;
+    var bounce = BOUNCE*B.bounce*(has("felt") ? 0.25 : 1);
+    var braking = state.braking && state.grip > 0 && has("magnet");
+    var damp = DAMP*B.damp*(braking ? 7.0 : 1);
+    var subs = 6, h = dt/subs;
+    var f0 = foundOf(state.level);
+
+    for (var s = 0; s < subs; s++){
+      state.vx += ax*h; state.vy += ay*h;
+
+      var pulled = -1, pd = 1e9, i, dx, dy, d;
+      for (i = 0; i < lv.holes.length; i++){
+        if (state.sealed[i]) continue;
+        dx = lv.holes[i][0] - state.px; dy = lv.holes[i][1] - state.py;
+        d = Math.sqrt(dx*dx + dy*dy);
+        if (d < HOLE_R && d < pd){ pd = d; pulled = i; }
+      }
+      if (pulled >= 0){
+        var f = (1 - pd/HOLE_R)*320*B.pull;
+        state.vx += (lv.holes[pulled][0] - state.px)/Math.max(pd, 0.001)*f*h;
+        state.vy += (lv.holes[pulled][1] - state.py)/Math.max(pd, 0.001)*f*h;
+        if (pd < FALL_D){
+          state.mode = "falling";
+          state.fallHole = lv.holes[pulled];
+          state.fallT = 0;
+          state.drops += 1;
+          syncHud();
+          return;
+        }
+      }
+
+      var dm = Math.exp(-damp*h);
+      state.vx *= dm; state.vy *= dm;
+      state.px += state.vx*h; state.py += state.vy*h;
+
+      for (var w = 0; w < lv.walls.length; w++){
+        var hit = circleRect(state.px, state.py, BALL_R, lv.walls[w]);
+        if (hit){
+          state.px += hit.nx*hit.pen; state.py += hit.ny*hit.pen;
+          var vn = state.vx*hit.nx + state.vy*hit.ny;
+          if (vn < 0){
+            state.vx -= (1 + bounce)*vn*hit.nx;
+            state.vy -= (1 + bounce)*vn*hit.ny;
+          }
+        }
+      }
+
+      if (state.px < BALL_R){ state.px = BALL_R; if (state.vx < 0) state.vx = -state.vx*bounce; }
+      if (state.px > U - BALL_R){ state.px = U - BALL_R; if (state.vx > 0) state.vx = -state.vx*bounce; }
+      if (state.py < BALL_R){ state.py = BALL_R; if (state.vy < 0) state.vy = -state.vy*bounce; }
+      if (state.py > U - BALL_R){ state.py = U - BALL_R; if (state.vy > 0) state.vy = -state.vy*bounce; }
+
+      for (i = 0; i < lv.tacks.length; i++){
+        if (state.gotTacks[i] || f0.t.indexOf(i) >= 0) continue;
+        dx = lv.tacks[i][0] - state.px; dy = lv.tacks[i][1] - state.py;
+        if (dx*dx + dy*dy < (BALL_R + TACK_R)*(BALL_R + TACK_R)){
+          state.gotTacks[i] = true;
+          state.pops.push({ x:lv.tacks[i][0], y:lv.tacks[i][1], t:0, gold:false });
+        }
+      }
+      if (!state.gotMark && !f0.m){
+        dx = lv.mark[0] - state.px; dy = lv.mark[1] - state.py;
+        if (dx*dx + dy*dy < (BALL_R + MARK_R)*(BALL_R + MARK_R)){
+          state.gotMark = true;
+          state.pops.push({ x:lv.mark[0], y:lv.mark[1], t:0, gold:true });
+        }
+      }
+
+      var gx = lv.goal[0] - state.px, gy = lv.goal[1] - state.py;
+      var gd = Math.sqrt(gx*gx + gy*gy);
+      if (gd < GOAL_R*0.75){
+        state.vx *= 0.45; state.vy *= 0.45;
+        if (gd < GOAL_R*0.45){
+          state.px = lv.goal[0]; state.py = lv.goal[1];
+          state.vx = 0; state.vy = 0;
+          showWin();
+          return;
+        }
+      }
+    }
+  }
+
+  function render(now){
+    var s = state.size, k = state.scale, lv = LEVELS[state.level];
+    ctx.clearRect(0, 0, s, s);
+    ctx.drawImage(boardCv, 0, 0, s, s);
+
+    var f = foundOf(state.level), i;
+    for (i = 0; i < lv.tacks.length; i++){
+      if (state.gotTacks[i] || f.t.indexOf(i) >= 0) continue;
+      drawTack(ctx, lv.tacks[i][0]*k, lv.tacks[i][1]*k, TACK_R*k);
+    }
+    if (!state.gotMark && !f.m) drawMark(ctx, lv.mark[0]*k, lv.mark[1]*k, MARK_R*k, now);
+    for (i in state.sealed){
+      if (state.sealed[i]) drawPlug(ctx, lv.holes[i][0]*k, lv.holes[i][1]*k, HOLE_R*k);
+    }
+    drawPops(ctx, k);
+
+    var r = BALL_R*k, alpha = 1, bx = state.px*k, by = state.py*k;
+    if (state.mode === "falling" && state.fallHole){
+      var t = Math.min(state.fallT/380, 1), e = t*t;
+      bx = (state.px + (state.fallHole[0] - state.px)*Math.min(t*2, 1))*k;
+      by = (state.py + (state.fallHole[1] - state.py)*Math.min(t*2, 1))*k;
+      r = BALL_R*k*(1 - e*0.92);
+      alpha = 1 - e*0.9;
+    }
+    drawBall(ctx, bx, by, r, alpha);
+
+    if (!reduceMotion){
+      tiltEl.style.transform = "rotateX(" + (-state.ty*0.22).toFixed(2) + "deg) rotateY(" +
+                               (state.tx*0.22).toFixed(2) + "deg)";
+    }
+    if (has("magnet")){
+      gripFill.style.transform = "scaleX(" + state.grip.toFixed(3) + ")";
+      if (state.grip <= 0.02) gripBar.classList.add("spent");
+      else gripBar.classList.remove("spent");
+    }
+  }
+
+  var last = 0;
+  function frame(now){
+    if (!last) last = now;
+    var dt = Math.min((now - last)/1000, 1/30);
+    last = now;
+
+    if (!motionLive && !pointerOn){
+      var kx = (keys.r ? 1 : 0) - (keys.l ? 1 : 0);
+      var ky = (keys.d ? 1 : 0) - (keys.u ? 1 : 0);
+      if (kx || ky){ state.rawx = kx*MAX_TILT*0.85; state.rawy = ky*MAX_TILT*0.85; }
+      else { state.rawx *= 0.80; state.rawy *= 0.80; }
+    }
+
+    var lerp = 1 - Math.exp(-14*dt);
+    state.tx += (state.rawx - state.tx)*lerp;
+    state.ty += (state.rawy - state.ty)*lerp;
+
+    if (has("magnet")){
+      if (state.braking && state.grip > 0) state.grip = Math.max(0, state.grip - dt*0.62);
+      else if (!state.braking) state.grip = Math.min(1, state.grip + dt*0.28);
+    }
+
+    for (var i = state.pops.length - 1; i >= 0; i--){
+      state.pops[i].t += dt*1000;
+      if (state.pops[i].t > 620) state.pops.splice(i, 1);
+    }
+
+    if (state.mode === "play"){
+      state.elapsed += dt*1000;
+      step(dt);
+      hudTime.textContent = fmt(state.elapsed);
+    } else if (state.mode === "falling"){
+      state.elapsed += dt*1000;
+      state.fallT += dt*1000;
+      hudTime.textContent = fmt(state.elapsed);
+      if (state.fallT > 520){
+        placeBall();
+        state.fallHole = null;
+        state.mode = "play";
+        syncHud();
+      }
+    }
+
+    render(now);
+    window.requestAnimationFrame(frame);
+  }
+
+  load();
+  buildDots();
+  if (window.ResizeObserver) new ResizeObserver(function(){ resize(); }).observe(zone);
+  else window.addEventListener("resize", resize);
+  window.addEventListener("orientationchange", function(){
+    baseBeta = null; baseGamma = null;
+    setTimeout(resize, 250);
+  });
+  placeBall();
+  resize();
+  syncHud();
+  showIntro();
+  window.requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
